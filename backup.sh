@@ -1,7 +1,11 @@
 #!/bin/sh
 
+##General variables. Modify them as you need
+chatid=
+api=
+
 # Setting this, so the repo does not need to be given on the commandline:
-export BORG_REPO=/path/to/repo
+export BORG_REPO=/mnt/synology
 
 # Setting this, so you won't be asked for your repository passphrase:
 export BORG_PASSPHRASE='PASSWORD'
@@ -44,9 +48,12 @@ borg create                         \
     --exclude '*.@__thumb/*'           \
     --exclude '*@DownloadStationTempFiles/*' \
     --exclude '/output/Container/container-station-data/*'    \
-                                     \
+                                    \
     ::'QNAP-{now:%Y-%m-%d}'          \
      /output                         \
+#    /home                           \
+#    /root                           \
+#    /var                            \
 
 backup_exit=$?
 
@@ -86,6 +93,10 @@ else
     info "Backup and/or Prune finished with errors"
 fi
 
+#capturing log to send using telegram bot
+telegramlog="/persist/backup`date +%Y-%m-%d`.log"
+grep -B 1 -A 100 "Archive name: QNAP-`date +%Y-%m-%d`" /logs/qnap-synology-borg.log > $telegramlog
+
 # Time count stop
 timestop=`date +%s`
 # Total execution time (in seconds)
@@ -99,5 +110,14 @@ curl -s \
   --data chat_id=$chatid \
   --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Qnap-Synology%0A    <i>Tarea:</i> <b>Backup</b>%0A    <i>Tiempo total:</i>$totaltime%0A    <i>Estado:</i> Finalizado con status: Backup=rc$backup_exit, Prune=rc$prune_exit" \
   "https://api.telegram.org/bot$api/sendMessage"
+
+curl -v -4 -F \
+  "chat_id=$chatid" \
+  -F document=@$telegramlog \
+  -F caption="Log: `date +%Y-%m-%d`.log" \
+  https://api.telegram.org/bot$api/sendDocument 2> /dev/null
+
+#deleteting temporal log file
+rm $telegramlog
 
 exit ${global_exit}
