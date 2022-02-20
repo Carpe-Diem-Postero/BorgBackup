@@ -1,11 +1,15 @@
 #!/bin/sh
 
+log="/mnt/user/scripts/logtemp/overkiller-qnap-borg.log"
+echo "iniciando backup con fecha: `date +%Y-%m-%d`" >> $log
+
 ##General variables. Modify them as you need
 chatid=
 api=
+healthcheck=
 
 # Setting this, so the repo does not need to be given on the commandline:
-export BORG_REPO=/mnt/synology
+export BORG_REPO=/mnt/user/borgbackup
 
 # Setting this, so you won't be asked for your repository passphrase:
 export BORG_PASSPHRASE='PASSWORD'
@@ -25,37 +29,42 @@ timestart=`date +%s`
 curl -s \
   --data parse_mode=HTML \
   --data chat_id=$chatid \
-  --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Qnap-Synology%0A    <i>Tarea:</i> <b>Backup</b>%0A    <i>Estado:</i> Iniciando Backup" \
+  --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Overkiller->UnQNAP%0A    <i>Tarea:</i> <b>Backup</b>%0A    <i>Estado:</i> Iniciando Backup" \
   "https://api.telegram.org/bot$api/sendMessage"
+
+# Healthcheck start hook
+ curl -m 10 --retry 5 https://hc-ping.com/$healthcheck/start
 
 # Backup the most important directories into an archive named after
 # the machine this script is currently running on:
 
-borg create                         \
-    --verbose                       \
-    --filter AME                    \
-    --list                          \
-    --stats                         \
-    --show-rc                       \
-    --compression lz4               \
-    --files-cache ctime,size        \
-    --exclude-caches                \
-    --exclude '/home/*/.cache/*'    \
-    --exclude '/var/cache/*'        \
-    --exclude '/var/tmp/*'          \
-    --exclude '*@Recycle/*'          \
+borg create                                          \
+    --verbose                                          \
+    --filter AME                                       \
+    --list                                                    \
+    --stats                                                 \
+    --show-rc                                            \
+    --compression lz4                             \
+    --files-cache ctime,size                     \
+    --exclude-caches                                \
+    --exclude '/home/*/.cache/*'           \
+    --exclude '/var/cache/*'                     \
+    --exclude '/var/tmp/*'                        \
+    --exclude '*@Recycle/*'                     \
     --exclude '*@Recently-Snapshot/*' \
-    --exclude '*.@__thumb/*'           \
-    --exclude '*@DownloadStationTempFiles/*' \
-    --exclude '/output/Container/container-station-data/*'    \
-                                    \
-    ::'QNAP-{now:%Y-%m-%d}'          \
-     /output                         \
+    --exclude '*.@__thumb/*'                  \
+                                      \
+    ::'Overkiller-{now:%Y-%m-%d}'          \
+     /mnt/remotes/              \
 #    /home                           \
-#    /root                           \
-#    /var                            \
+#    /root                              \
+#    /var                                \
 
 backup_exit=$?
+
+if [ $backup_exit -eq 0 ]; then backup_re="Backup correcto"
+elif [ $backup_exit -eq 1 ]; then backup_re="Backup completado pero con advertencias"
+else backup_re="ERROR EN BACKUP"
 
 info "Pruning repository"
 
@@ -64,23 +73,19 @@ info "Pruning repository"
 # limit prune's operation to this machine's archives and not apply to
 # other machines' archives also:
 
-borg prune                          \
-    --list                          \
-    --prefix 'QNAP-'                \
-    --show-rc                       \
-    --keep-last     20 		    \
-    --keep-weekly   12              \
-    --keep-monthly  24              \
+borg prune                     \
+    --list                              \
+    --prefix 'Overkiller-'    \
+    --show-rc                      \
+    --keep-last     	8	      \
+    --keep-weekly   12       \
+    --keep-monthly  24      \
 
 prune_exit=$?
 
-#borg check                          \
-#    -v                              \
-#    -p                              \
-#    --show-rc                       \
-#    --last 1                        \
-#
-#check_exit=$?
+if [ $prune_exit -eq 0 ]; then prune_re="Prune correcto"
+elif [ $prune_exit -eq 1 ]; then prune_re="Prune completado pero con advertencias"
+else prune_re="ERROR EN PRUNE"
 
 # use highest exit code as global exit code
 global_exit=$(( backup_exit > prune_exit ? backup_exit : prune_exit ))
@@ -94,8 +99,8 @@ else
 fi
 
 #capturing log to send using telegram bot
-telegramlog="/persist/backup`date +%Y-%m-%d`.log"
-grep -B 1 -A 100 "Archive name: QNAP-`date +%Y-%m-%d`" /logs/qnap-synology-borg.log > $telegramlog
+telegramlog="/scripts/backup`date +%Y-%m-%d`.log"
+grep -B 1 -A 100 "Archive name: Overkiller-`date +%Y-%m-%d`" /mnt/user/scripts/logtemp/overkiller-qnap-borg.log > $telegramlog
 
 # Time count stop
 timestop=`date +%s`
@@ -108,7 +113,7 @@ totaltime=`date -d@$runtime -u +%H:%M:%S`
 curl -s \
   --data parse_mode=HTML \
   --data chat_id=$chatid \
-  --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Qnap-Synology%0A    <i>Tarea:</i> <b>Backup</b>%0A    <i>Tiempo total:</i>$totaltime%0A    <i>Estado:</i> Finalizado con status: Backup=rc$backup_exit, Prune=rc$prune_exit" \
+  --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Overkiller->QNAP%0A    <i>Tarea:</i> <b>Backup</b>%0A    <i>Tiempo total:</i>$totaltime%0A    <i>Estado:</i> $backup_re , $prune_re" \
   "https://api.telegram.org/bot$api/sendMessage"
 
 curl -v -4 -F \
@@ -119,5 +124,40 @@ curl -v -4 -F \
 
 #deleteting temporal log file
 rm $telegramlog
+
+# Comprueba si es la primera semana del mes
+dia=`date +%d`
+if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta¡ entre 1 y 7 (primera semana)
+  echo "================= Primera semana del mes. Iniciando Check =================" >> $log
+  borg check                 \
+    -v                              \
+    -p                              \
+    --show-rc                 \
+
+  check_exit=$?
+
+  if [ $check_exit -eq 0 ]; then check_re="Check correcto"
+  elif [ $check_exit -eq 1 ]; then check_re="Check completado pero con advertencias"
+  else check_re="ERROR EN CHECK"
+
+  # Notification to Telegram
+  curl -s \
+  --data parse_mode=HTML \
+  --data chat_id=$chatid \
+  --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Overkiller->QNAP%0A    <i>Tarea:</i> <b>Check del repositorio</b>%0A    <i>Estado:</i> $check_re" \
+  "https://api.telegram.org/bot$api/sendMessage"
+
+  sleep 5
+  cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
+  sleep 5
+  sudo rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
+  exit 0
+fi
+# Si no se cumple el IF (no es la primera semana del mes), no se realiza check
+echo "=========================== FINALIZANDO Y APAGANDO QNAP-OMV ===========================" >> $log
+cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
+sleep 5
+
+
 
 exit ${global_exit}
