@@ -125,6 +125,9 @@ curl -v -4 -F \
 #deleteting temporal log file
 rm $telegramlog
 
+# Healthcheck end hook
+ curl -m 10 --retry 5 https://hc-ping.com/$healthcheck
+
 # Comprueba si es la primera semana del mes
 dia=`date +%d`
 if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta¡ entre 1 y 7 (primera semana)
