@@ -1,12 +1,12 @@
 #!/bin/sh
 
+##General variables. Modify them as you need
+chatid="xxxx"
+api="yyyyy"
+healthcheck="zzzzz"
+
 log="/mnt/user/scripts/logtemp/overkiller-qnap-borg.log"
 echo "iniciando backup con fecha: `date +%Y-%m-%d`" >> $log
-
-##General variables. Modify them as you need
-chatid=
-api=
-healthcheck=
 
 # Setting this, so the repo does not need to be given on the commandline:
 export BORG_REPO=/mnt/user/borgbackup
@@ -56,9 +56,7 @@ borg create                                          \
                                       \
     ::'Overkiller-{now:%Y-%m-%d}'          \
      /mnt/remotes/              \
-#    /home                           \
-#    /root                              \
-#    /var                                \
+     2 >> $log
 
 backup_exit=$?
 
@@ -80,6 +78,7 @@ borg prune                     \
     --keep-last     	8	      \
     --keep-weekly   12       \
     --keep-monthly  24      \
+    2 >> $log
 
 prune_exit=$?
 
@@ -130,12 +129,13 @@ rm $telegramlog
 
 # Comprueba si es la primera semana del mes
 dia=`date +%d`
-if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta¡ entre 1 y 7 (primera semana)
+if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 1 y 7 (primera semana)
   echo "================= Primera semana del mes. Iniciando Check =================" >> $log
   borg check                 \
     -v                              \
     -p                              \
     --show-rc                 \
+    2 >> $log
 
   check_exit=$?
 
@@ -160,7 +160,6 @@ fi
 echo "=========================== FINALIZANDO Y APAGANDO QNAP-OMV ===========================" >> $log
 cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
 sleep 5
-
 
 
 exit ${global_exit}
