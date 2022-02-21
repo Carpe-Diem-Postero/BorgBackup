@@ -160,6 +160,6 @@ fi
 echo "=========================== FINALIZANDO Y APAGANDO QNAP-OMV ===========================" >> $log
 cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
 sleep 5
-
+sudo rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
 
 exit ${global_exit}
