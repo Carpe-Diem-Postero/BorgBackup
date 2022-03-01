@@ -1,3 +1,7 @@
+
+##########DEPRECATED###########
+
+
 #!/bin/sh
 log="/logs/qnap-synology-borg.log"
 echo "iniciando backup con fecha: `date +%Y-%m-%d`" >> $log

@@ -1,3 +1,6 @@
+############DEPRECATED##############
+
+
 #!/bin/sh
 log="/mnt/user/scripts/logtemp/overkiller-qnap-borg.log"
 echo "Montando directorios SMB" >> $log
