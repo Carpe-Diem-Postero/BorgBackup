@@ -1,10 +1,11 @@
 #!/bin/sh
 
-##General variables. Modify them as you need
+## General variables. Chatid is telegram chatid to send notifications. api is telegram bot's token. Healthcheck is healthchecks.io's API. Modify them as you need
 chatid="xxxx"
 api="yyyyy"
 healthcheck="zzzzz"
 
+## Log file to store Borg output
 log="/mnt/user/scripts/logtemp/overkiller-qnap-borg.log"
 echo "iniciando backup con fecha: `date +%Y-%m-%d`" >> $log
 
@@ -56,7 +57,7 @@ borg create                                          \
                                       \
     ::'Overkiller-{now:%Y-%m-%d}'          \
      /mnt/remotes/              \
-     2 >> $log
+     2>> $log
 
 backup_exit=$?
 
@@ -66,7 +67,7 @@ else backup_re="ERROR EN BACKUP"
 
 info "Pruning repository"
 
-# Use the `prune` subcommand to maintain 7 daily, 4 weekly and 6 monthly
+# Use the `prune` subcommand to maintain last 8, 12 weekly and 24 monthly
 # archives of THIS machine. The '{hostname}-' prefix is very important to
 # limit prune's operation to this machine's archives and not apply to
 # other machines' archives also:
@@ -75,10 +76,10 @@ borg prune                     \
     --list                              \
     --prefix 'Overkiller-'    \
     --show-rc                      \
-    --keep-last     	8	      \
+    --keep-last     8	      \
     --keep-weekly   12       \
     --keep-monthly  24      \
-    2 >> $log
+    2>> $log
 
 prune_exit=$?
 
@@ -98,7 +99,7 @@ else
 fi
 
 #capturing log to send using telegram bot
-telegramlog="/scripts/backup`date +%Y-%m-%d`.log"
+telegramlog="/mnt/user/scripts/backup`date +%Y-%m-%d`.log"
 grep -B 1 -A 100 "Archive name: Overkiller-`date +%Y-%m-%d`" /mnt/user/scripts/logtemp/overkiller-qnap-borg.log > $telegramlog
 
 # Time count stop
@@ -121,13 +122,13 @@ curl -v -4 -F \
   -F caption="Log: `date +%Y-%m-%d`.log" \
   https://api.telegram.org/bot$api/sendDocument 2> /dev/null
 
-#deleteting temporal log file
+# Deleteting temporal log file
 rm $telegramlog
 
 # Healthcheck end hook
  curl -m 10 --retry 5 https://hc-ping.com/$healthcheck
 
-# Comprueba si es la primera semana del mes
+# Checks if it's the first week of month, and perform perform repository check if so.
 dia=`date +%d`
 if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 1 y 7 (primera semana)
   echo "================= Primera semana del mes. Iniciando Check =================" >> $log
@@ -135,7 +136,7 @@ if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 
     -v                              \
     -p                              \
     --show-rc                 \
-    2 >> $log
+    2>> $log
 
   check_exit=$?
 
@@ -149,17 +150,21 @@ if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 
   --data chat_id=$chatid \
   --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Overkiller->QNAP%0A    <i>Tarea:</i> <b>Check del repositorio</b>%0A    <i>Estado:</i> $check_re" \
   "https://api.telegram.org/bot$api/sendMessage"
-
+  
+  echo "=========================== FINALIZANDO Y APAGANDO UnQNAP ===========================" >> $log
+  # Copy log to remote device and shutdown local device until next Friday 23:35h 
   sleep 5
   cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
   sleep 5
-  sudo rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
+  rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
   exit 0
 fi
-# Si no se cumple el IF (no es la primera semana del mes), no se realiza check
-echo "=========================== FINALIZANDO Y APAGANDO QNAP-OMV ===========================" >> $log
+# If it's not the first week of month, don't perform repository check.
+echo "=========================== FINALIZANDO Y APAGANDO UnQNAP ===========================" >> $log
+
+# Copy log to remote device and shutdown local device until next Friday 23:35h 
 cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
 sleep 5
-sudo rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
+rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
 
 exit ${global_exit}
