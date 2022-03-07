@@ -5,9 +5,11 @@ chatid="xxxx"
 api="yyyyy"
 healthcheck="zzzzz"
 
+## Set current Date
+datelog=`date +%Y-%m-%d`
 ## Log file to store Borg output
 log="/mnt/user/scripts/logtemp/overkiller-qnap-borg.log"
-echo "iniciando backup con fecha: `date +%Y-%m-%d`" >> $log
+echo "iniciando backup con fecha: $datelog" >> $log
 
 # Setting this, so the repo does not need to be given on the commandline:
 export BORG_REPO=/mnt/user/borgbackup
@@ -24,9 +26,9 @@ trap 'echo $( date ) Backup interrupted >&2; exit 2' INT TERM
 info "Starting backup"
 
 # Time count start
-timestart=`date +%s`
+timestart=$SECONDS
 
-# Notification to Telegram (Start)
+# Notification to Telegram (Start Backup)
 curl -s \
   --data parse_mode=HTML \
   --data chat_id=$chatid \
@@ -99,17 +101,21 @@ else
 fi
 
 #capturing log to send using telegram bot
-telegramlog="/mnt/user/scripts/backup`date +%Y-%m-%d`.log"
-grep -B 1 -A 100 "Archive name: Overkiller-`date +%Y-%m-%d`" /mnt/user/scripts/logtemp/overkiller-qnap-borg.log > $telegramlog
+telegramlog="/mnt/user/scripts/backup$datelog.log"
+grep -B 1 -A 100 "Archive name: Overkiller-$datelog" /mnt/user/scripts/logtemp/overkiller-qnap-borg.log > $telegramlog
 
 # Time count stop
 timestop=`date +%s`
 # Total execution time (in seconds)
-runtime=$((timestop-timestart))
+runtime=$(( SECONDS - timestart ))
 # Total execution time conversion
-totaltime=`date -d@$runtime -u +%H:%M:%S`
+D=$((runtime/60/60/24))
+H=$((runtime/60/60%24))
+M=$((runtime/60%60))
+S=$((runtime%60))
+totaltime="$D días, $H horas, $M minutos, $S segundos"
 
-# Notification to Telegram
+# Notification to Telegram (End Backup + Send Log)
 curl -s \
   --data parse_mode=HTML \
   --data chat_id=$chatid \
@@ -119,7 +125,7 @@ curl -s \
 curl -v -4 -F \
   "chat_id=$chatid" \
   -F document=@$telegramlog \
-  -F caption="Log: `date +%Y-%m-%d`.log" \
+  -F caption="Log: $datelog.log" \
   https://api.telegram.org/bot$api/sendDocument 2> /dev/null
 
 # Deleteting temporal log file
@@ -131,6 +137,14 @@ rm $telegramlog
 # Checks if it's the first week of month, and perform perform repository check if so.
 dia=`date +%d`
 if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 1 y 7 (primera semana)
+  
+  # Notification to Telegram (Start Check)
+  curl -s \
+    --data parse_mode=HTML \
+    --data chat_id=$chatid \
+    --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Overkiller->UnQNAP%0A    <i>Tarea:</i> <b>Check</b>%0A    <i>Estado:</i> Iniciando Check del Repositorio" \
+  "https://api.telegram.org/bot$api/sendMessage"
+  
   echo "================= Primera semana del mes. Iniciando Check =================" >> $log
   borg check                 \
     -v                              \
@@ -144,7 +158,7 @@ if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 
   elif [ $check_exit -eq 1 ]; then check_re="Check completado pero con advertencias"
   else check_re="ERROR EN CHECK"
 
-  # Notification to Telegram
+  # Notification to Telegram (End Check)
   curl -s \
   --data parse_mode=HTML \
   --data chat_id=$chatid \
@@ -159,6 +173,7 @@ if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 
   rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
   exit 0
 fi
+
 # If it's not the first week of month, don't perform repository check.
 echo "=========================== FINALIZANDO Y APAGANDO UnQNAP ===========================" >> $log
 
