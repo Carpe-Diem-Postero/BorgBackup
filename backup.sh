@@ -93,11 +93,11 @@ else prune_re="ERROR EN PRUNE"
 global_exit=$(( backup_exit > prune_exit ? backup_exit : prune_exit ))
 
 if [ ${global_exit} -eq 0 ]; then
-    info "Backup and Prune finished successfully"
+    info "Backup and Prune finished successfully" >> $log
 elif [ ${global_exit} -eq 1 ]; then
-    info "Backup and/or Prune finished with warnings"
+    info "Backup and/or Prune finished with warnings" >> $log
 else
-    info "Backup and/or Prune finished with errors"
+    info "Backup and/or Prune finished with errors" >> $log
 fi
 
 #capturing log to send using telegram bot
@@ -113,7 +113,7 @@ D=$((runtime/60/60/24))
 H=$((runtime/60/60%24))
 M=$((runtime/60%60))
 S=$((runtime%60))
-totaltime="$D días, $H horas, $M minutos, $S segundos"
+totaltime="${D} días, ${H} horas, ${M} minutos, ${S} segundos"
 
 # Notification to Telegram (End Backup + Send Log)
 curl -s \
