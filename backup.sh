@@ -5,6 +5,8 @@ chatid="xxxx"
 api="yyyyy"
 healthcheck="zzzzz"
 
+logstorage="/mnt/remotes/192.168.1.100_logs"
+
 ## Set current Date
 datelog=`date +%Y-%m-%d`
 ## Log file to store Borg output
@@ -133,12 +135,6 @@ rm $telegramlog
 
 # Healthcheck end hook
  curl -m 10 --retry 5 https://hc-ping.com/$healthcheck
-
-# Checks if it's the first week of month, and perform perform repository check if so.
-dia=`date +%d`
-if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 1 y 7 (primera semana)
-  
-  # Notification to Telegram (Start Check)
   curl -s \
     --data parse_mode=HTML \
     --data chat_id=$chatid \
@@ -168,7 +164,7 @@ if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 
   echo "=========================== FINALIZANDO Y APAGANDO UnQNAP ===========================" >> $log
   # Copy log to remote device and shutdown local device until next Friday 23:35h 
   sleep 5
-  cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
+  cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log $logstorage/overkiller-qnap-borg.log
   sleep 5
   rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
   exit 0
@@ -178,7 +174,7 @@ fi
 echo "=========================== FINALIZANDO Y APAGANDO UnQNAP ===========================" >> $log
 
 # Copy log to remote device and shutdown local device until next Friday 23:35h 
-cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log /mnt/remotes/logs/overkiller-qnap-borg.log
+cp /mnt/user/scripts/logtemp/overkiller-qnap-borg.log $logstorage/overkiller-qnap-borg.log
 sleep 5
 rtcwake -m off -l -t $(date +%s -d "next friday 23:25")
 
