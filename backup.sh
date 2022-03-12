@@ -5,21 +5,18 @@ chatid="xxxx"
 api="yyyyy"
 healthcheck="zzzzz"
 
-logstorage="/mnt/remotes/192.168.1.100_logs"
+log="/mnt/user/scripts/logtemp/overkiller-qnap-borg.log" ## Log file to store Borg output in the current device
+logstorage="/mnt/remotes/192.168.1.100_logs" #Where final log will be copied in the remote device
+export BORG_BASE_DIR=/mnt/user/borgdir #Location of Borg Backup base directory (cache and temp files storage)
+export BORG_REPO=/mnt/user/borgbackup #Repository location
+export BORG_PASSPHRASE='PASSWORD' #Repository Password 
+# export BORG_PASSCOMMAND='pass show backup' # or this to ask an external program to supply the passphrase:
+
 
 ## Set current Date
 datelog=`date +%Y-%m-%d`
-## Log file to store Borg output
-log="/mnt/user/scripts/logtemp/overkiller-qnap-borg.log"
+
 echo "iniciando backup con fecha: $datelog" >> $log
-
-# Setting this, so the repo does not need to be given on the commandline:
-export BORG_REPO=/mnt/user/borgbackup
-
-# Setting this, so you won't be asked for your repository passphrase:
-export BORG_PASSPHRASE='PASSWORD'
-# or this to ask an external program to supply the passphrase:
-# export BORG_PASSCOMMAND='pass show backup'
 
 # some helpers and error handling:
 info() { printf "\n%s %s\n\n" "$( date )" "$*" >&2; }
@@ -68,6 +65,7 @@ backup_exit=$?
 if [ $backup_exit -eq 0 ]; then backup_re="Backup correcto"
 elif [ $backup_exit -eq 1 ]; then backup_re="Backup completado pero con advertencias"
 else backup_re="ERROR EN BACKUP"
+fi
 
 info "Pruning repository"
 
@@ -90,6 +88,7 @@ prune_exit=$?
 if [ $prune_exit -eq 0 ]; then prune_re="Prune correcto"
 elif [ $prune_exit -eq 1 ]; then prune_re="Prune completado pero con advertencias"
 else prune_re="ERROR EN PRUNE"
+fi
 
 # use highest exit code as global exit code
 global_exit=$(( backup_exit > prune_exit ? backup_exit : prune_exit ))
@@ -103,8 +102,8 @@ else
 fi
 
 #capturing log to send using telegram bot
-telegramlog="/mnt/user/scripts/backup$datelog.log"
-grep -B 1 -A 100 "Archive name: Overkiller-$datelog" /mnt/user/scripts/logtemp/overkiller-qnap-borg.log > $telegramlog
+telegramlog="/mnt/user/borgdir/backup$datelog.log"
+grep -B 1 -A 100 "Archive name: Overkiller-$datelog" $log > $telegramlog
 
 # Time count stop
 timestop=`date +%s`
@@ -135,6 +134,11 @@ rm $telegramlog
 
 # Healthcheck end hook
  curl -m 10 --retry 5 https://hc-ping.com/$healthcheck
+
+# Checks if it's the first week of month, and perform perform repository check if so.
+dia=`date +%d`
+if [ "$dia" -ge 1 ] && [ "$dia" -le 7 ]; then # Si el numero del dia esta entre 1 y 7 (primera semana)
+
   curl -s \
     --data parse_mode=HTML \
     --data chat_id=$chatid \
@@ -153,6 +157,7 @@ rm $telegramlog
   if [ $check_exit -eq 0 ]; then check_re="Check correcto"
   elif [ $check_exit -eq 1 ]; then check_re="Check completado pero con advertencias"
   else check_re="ERROR EN CHECK"
+  fi
 
   # Notification to Telegram (End Check)
   curl -s \
