@@ -120,7 +120,7 @@ totaltime="${D} días, ${H} horas, ${M} minutos, ${S} segundos"
 curl -s \
   --data parse_mode=HTML \
   --data chat_id=$chatid \
-  --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Overkiller->QNAP%0A    <i>Tarea:</i> <b>Backup</b>%0A    <i>Tiempo total:</i>$totaltime%0A    <i>Estado:</i> $backup_re , $prune_re" \
+  --data text="<b>Borg Backup</b>%0A    <i>Repo:</i> Overkiller->UnQNAP%0A    <i>Tarea:</i> <b>Backup</b>%0A    <i>Tiempo total:</i>$totaltime%0A    <i>Estado:</i> $backup_re , $prune_re" \
   "https://api.telegram.org/bot$api/sendMessage"
 
 curl -v -4 -F \
