@@ -55,7 +55,7 @@ borg create                                          \
     --exclude '*@Recently-Snapshot/*'                \
     --exclude '*.@__thumb/*'                         \
                                                      \
-    ::'Overkiller-{now:%Y-%m-%d}'                    \ #Name that backups will be given.
+    ::'Overkiller-{now:%Y-%m-%d}'                    \
      /mnt/remotes/                                   \
      2>> $log
 
